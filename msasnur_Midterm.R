@@ -1,0 +1,140 @@
+#Machine Learning - Midterm Assignment#
+#Email: msasnur@kent.edu#
+#Date:31/10/2019#
+
+library(readr)
+library(ISLR)
+library(tidyverse)
+library(factoextra)
+univ<-read_csv("Universities.csv")
+
+#Question 1
+#Removing all records with missing measurements from the dataset
+univ1<-na.omit(univ)
+View(univ1)
+
+#Question 2
+# Scaling the data frame (z-score)
+uni<-univ1[,c(-1,-2,-3)]
+uni<-scale(uni)
+distance <- get_dist(uni)
+fviz_dist(distance)
+
+# To find the best K value using Elbow Method and Silhouette Method
+fviz_nbclust(uni,kmeans,method = "wss")
+fviz_nbclust(uni,kmeans,method = "silhouette")
+
+# From above two methods we have found out that the Best K value for cluster analysis is 3.
+
+# To run kmeans clustering analysis 
+k3<- kmeans(uni, centers = 3, nstart = 25)
+k3$centers #summary of cluster analysis
+k3$size #Size of each cluster
+k3$cluster[99] # To see which Cluster does 99th record belong to 
+fviz_cluster(k3, data = uni) #Drawing cluster graph
+
+#Question 3
+# As seen above from summary of k3$centers, we can observe the values for three different clusters.
+plot(c(0), xaxt = 'n', ylab = "", type = "l",
+     ylim = c(min(k3$centers), max(k3$centers)), xlim = c(0, 18))
+axis(1, at = c(1:17), labels = FALSE)
+text(seq(1,17,by=1),par("usr")[3]-0.2,labels = colnames(uni),srt = 45,pos =1,xpd = TRUE)
+for (i in c(1:3))
+  lines(k3$centers[i,], lty = i, lwd = 2) 
+text(x = 0.5, y = k3$centers[, 1], labels = paste("Cluster", c(1:3)))
+
+# In cluster 3,
+# Columns (Application Rejected, 
+#            Application Accepted, 
+#            New Student Enrolled, 
+#            Full Time underGrad, 
+#            Part Time underGrad, 
+#            Additional fees, 
+#            book costs, 
+#            estimated personal expenses, 
+#            student to faculty ratio) 
+#            have higher values and we can discern this pattern in cluster 3.
+
+#In cluster 2,
+# Columns (New student from 10%,
+#          New student from top 25%, 
+#          in-state tution, 
+#          out-of-station tution, 
+#          Room, 
+#          Board,
+#          Percentage of faculty with PhD,
+#          Graduation Rate)
+#          have higher values and we can discern that in Cluster 2. 
+
+#In cluster 1,
+# Columns (Application Rejected, 
+#            Application Accepted, 
+#            New Student Enrolled,
+#            New student from 10%,
+#            New student from top 25%,
+#            Full Time underGrad,
+#            Part Time underGrad,
+#            in-state tution,
+#            out-of-station tution,
+#            Room,
+#            Board,)
+#            have lower values and we can discern that in Cluster 1.
+
+#Question 4
+cat<-cbind(univ1[,c(1,2,3)],k3$cluster)
+head(cat)
+cat<-as.data.frame(cat)
+cat$`Public (1)/ Private (2)`<-factor(univ1$`Public (1)/ Private (2)`, levels=c("1","2"), labels = c("Public","Private"))
+Cluster1 <- cat[cat$`k3$cluster` == 1,]
+View(Cluster1)
+Cluster2 <- cat[cat$`k3$cluster` == 2,]
+View(Cluster2)
+Cluster3 <- cat[cat$`k3$cluster` == 3,]
+View(Cluster3)
+cat$`k3$cluster`<-factor(cat$`k3$cluster`, levels=c("1","2","3"), labels = c("Cluster 1","Cluster 2","Cluster 3"))
+library(ggplot2)
+ggplot(cat,aes(x=cat$State,y=cat$`Public (1)/ Private (2)`,color=cat$`k3$cluster`))+geom_point()
+
+#After binding the categorical columns with clusters, we observe that
+# Cluster 1 has data of both Public and Private Universities
+# Cluster 2 has data belonging to Private universities
+# Cluster 3 has data belonging to Public Universities mostly
+
+# Using Pivot table we can get detailed information on number of universities belonging to each cluster, 
+# represented according to states. Separated by Public and Private Universities.
+# We can also see the total number of Public and Private universities in each state. 
+library(pivottabler)
+pt<-PivotTable$new()
+pt$addData(cat)
+pt$addColumnDataGroups('Public (1)/ Private (2)')
+pt$addColumnDataGroups('k3$cluster')
+pt$addRowDataGroups('State')
+pt$defineCalculation(calculationName= 'Total', summariseExpression = 'n()')
+pt$renderPivot()
+
+#Question 5
+# Using withinss and betweenss function, we can get distance between cetriods of the clusters by betweenss function and distance between mean of all data points to cetriod of that cluster.
+k3$withinss
+k3$betweenss
+ 
+
+#Question 6
+K2<-kmeans(univ1[,c(-1,-2,-3)],centers = 3)
+m1<-mean(K2$centers[1,]) # Mean of Cluster 1
+m2<-mean(K2$centers[2,]) # Mean of cluster 2
+m3<-mean(K2$centers[3,]) # Mean of cluster 3
+a1<-univ[univ$`College Name`=="Tufts University",]
+View(a1)
+a2<-apply(a1[,-c(1:3,10)],1,mean) # Mean of record
+mean(a2)
+dist(rbind(a2,m1)) # Euclideam distance betweewn mean of cluster 1 and Tufts university data
+dist(rbind(a2,m2))
+dist(rbind(a2,m3))
+a1$`# PT undergrad`<-1529.309 # From the above, Mean value which is near to cluster 1. Hence replacing the missing value with mean value
+univ2<-rbind(univ1,a1)
+View(uni2)
+univ2_z<-scale(univ2[,-c(1:3)])
+univ2_cluster<-kmeans(univ2_z,3)
+univ2<-cbind(univ2,univ2_cluster$cluster)
+univ2[472,]
+# From above results, we can see that Tufts University belongs to Cluster 3 and its indexed at 472nd record. 
